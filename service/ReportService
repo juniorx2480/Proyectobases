@@ -1,0 +1,52 @@
+package org.example.service;
+
+import org.example.dao.ReportDAO;
+
+import java.sql.Date;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * ReportService: capa intermedia entre Main y ReportDAO para cada consulta.
+ */
+public class ReportService {
+
+    private final ReportDAO reportDAO;
+
+    public ReportService() throws SQLException {
+        this.reportDAO = new ReportDAO();
+    }
+
+    public List<Map<String, Object>> propiedadesRentadasPorCliente(int year, int month) throws SQLException {
+        return reportDAO.getPropiedadesRentadasPorCliente(year, month);
+    }
+
+    public List<Map<String, Object>> sumaPagadaADuenoPorPeriodo(Date inicio, Date fin) throws SQLException {
+        return reportDAO.getSumaPagadaADuenoPorPeriodo(inicio, fin);
+    }
+
+    public List<Map<String, Object>> sumaYCantidadRentasPorCliente(Date inicio, Date fin) throws SQLException {
+        return reportDAO.getSumaYCantidadRentasPorCliente(inicio, fin);
+    }
+
+    public List<Map<String, Object>> totalRentasPorUbicacion(Date inicio, Date fin) throws SQLException {
+        return reportDAO.getTotalRentasPorUbicacion(inicio, fin);
+    }
+
+    public List<Map<String, Object>> impuestosPorRenta(Date inicio, Date fin) throws SQLException {
+        return reportDAO.getImpuestosPorRenta(inicio, fin);
+    }
+
+    public List<Map<String, Object>> tiposPropiedadesMasRentadas() throws SQLException {
+        return reportDAO.getTiposPropiedadesMasRentadas();
+    }
+
+    public List<Map<String, Object>> totalesRentasConImpuestos(Date inicio, Date fin) throws SQLException {
+        return reportDAO.getTotalesRentasConImpuestos(inicio, fin);
+    }
+
+    public List<Map<String, Object>> totalesComisionesPorPeriodo(Date inicio, Date fin) throws SQLException {
+        return reportDAO.getTotalesComisionesPorPeriodo(inicio, fin);
+    }
+}
