@@ -1,0 +1,845 @@
+package org.example;
+
+import org.example.model.Cliente;
+import org.example.model.Dueno;
+import org.example.model.Propiedad;
+import org.example.model.Visita;
+import org.example.model.Inquilino;
+import org.example.service.AccountService;
+import org.example.service.AuthService;
+import org.example.service.PropiedadService;
+import org.example.service.VisitaService;
+import org.example.service.RentaService;
+import org.example.service.ReportService;
+import org.example.util.DBConnection;
+
+import java.sql.Date;
+import java.sql.SQLException;
+import java.util.*;
+
+public class Main {
+    private static Scanner scanner = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        AuthService authService;
+        AccountService accountService;
+        PropiedadService propiedadService;
+        VisitaService visitaService;
+        RentaService rentaService;
+        ReportService reportService;
+
+        try {
+            authService     = new AuthService();
+            accountService  = new AccountService();
+            propiedadService = new PropiedadService();
+            visitaService   = new VisitaService();
+            rentaService    = new RentaService();
+            reportService   = new ReportService();
+        } catch (SQLException e) {
+            System.err.println("Error inicializando servicios: " + e.getMessage());
+            return;
+        }
+
+        boolean salir = false;
+        while (!salir) {
+            System.out.println("\n=== MENÚ PRINCIPAL ===");
+            System.out.println("1) Iniciar Sesión (Cliente / Dueño)");
+            System.out.println("2) Crear Cuenta (Cliente)");
+            System.out.println("3) Buscar Propiedades (invitado)");
+            System.out.println("0) Salir");
+            System.out.print("Elige opción: ");
+
+            String opcionPrincipal = scanner.nextLine().trim();
+            switch (opcionPrincipal) {
+                case "1":
+                    iniciarSesion(authService, propiedadService, visitaService, rentaService, reportService);
+                    break;
+                case "2":
+                    crearCuentaCliente(accountService);
+                    break;
+                case "3":
+                    buscarPropiedadesComoInvitado(propiedadService);
+                    break;
+                case "0":
+                    salir = true;
+                    break;
+                default:
+                    System.out.println("Opción inválida. Intenta de nuevo.");
+            }
+        }
+
+        System.out.println("¡Hasta luego!");
+        DBConnection.closeConnection();
+        scanner.close();
+    }
+
+
+    private static void iniciarSesion(AuthService authService,
+                                      PropiedadService propiedadService,
+                                      VisitaService visitaService,
+                                      RentaService rentaService,
+                                      ReportService reportService) {
+        System.out.println("\n--- INICIAR SESIÓN ---");
+        System.out.print("Usuario: ");
+        String nombreUsuario = scanner.nextLine().trim();
+        System.out.print("Contraseña: ");
+        String contrasena = scanner.nextLine().trim();
+
+        try {
+            var usuario = authService.login(nombreUsuario, contrasena);
+            if (usuario == null) {
+                System.out.println("Credenciales inválidas. Regresa al menú principal.");
+                return;
+            }
+            if (usuario instanceof Cliente) {
+                Cliente cli = (Cliente) usuario;
+                System.out.println("Login exitoso. Bienvenido Cliente: "
+                        + cli.getNombre() + " " + cli.getApellido());
+                menuCliente(cli, propiedadService, visitaService, rentaService, reportService);
+            } else if (usuario instanceof Dueno) {
+                Dueno d = (Dueno) usuario;
+                System.out.println("Login exitoso. Bienvenido Dueño: "
+                        + d.getNombre() + " " + d.getApellido());
+                menuDueno(d, propiedadService, reportService);
+            } else {
+                System.out.println("Tipo de usuario desconocido. Regresa al menú principal.");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al consultar credenciales: " + e.getMessage());
+        }
+    }
+
+    // ==========================================
+    //              MÉTODOS PARA MENÚ CLIENTE
+    // ==========================================
+
+    private static void menuCliente(Cliente cliente,
+                                    PropiedadService propiedadService,
+                                    VisitaService visitaService,
+                                    RentaService rentaService,
+                                    ReportService reportService) {
+        boolean cerrarSesion = false;
+        while (!cerrarSesion) {
+            System.out.println("\n--- MENÚ CLIENTE ---");
+            System.out.println("1) Buscar Propiedades");
+            System.out.println("2) Ver Detalles de una Propiedad");
+            System.out.println("3) Agregar Propiedad a Lista de Visitas");
+            System.out.println("4) Ver Mi Lista de Visitas");
+            System.out.println("5) Rentar Propiedad (Modo Simple)");
+            System.out.println("6) Ver Reportes");
+            System.out.println("9) Cerrar Sesión");
+            System.out.print("Elige opción: ");
+
+            String opcion = scanner.nextLine().trim();
+            switch (opcion) {
+                case "1":
+                    buscarPropiedades(propiedadService);
+                    break;
+                case "2":
+                    verDetallesPropiedad(propiedadService);
+                    break;
+                case "3":
+                    agregarAListaVisitas(cliente.getId(), visitaService);
+                    break;
+                case "4":
+                    verListaVisitas(cliente.getId(), visitaService, propiedadService);
+                    break;
+                case "5":
+                    rentarPropiedadModoSimple(cliente.getId(), rentaService, propiedadService);
+                    break;
+                case "6":
+                    menuReportes(reportService);
+                    break;
+                case "9":
+                    cerrarSesion = true;
+                    break;
+                default:
+                    System.out.println("Opción inválida. Intenta de nuevo.");
+            }
+        }
+    }
+
+
+    private static void menuDueno(Dueno dueno,
+                                  PropiedadService propiedadService,
+                                  ReportService reportService) {
+        boolean cerrarSesion = false;
+        while (!cerrarSesion) {
+            System.out.println("\n--- MENÚ DUEÑO ---");
+            System.out.println("1) Agregar Propiedad");
+            System.out.println("2) Buscar Propiedades");
+            System.out.println("3) Ver Detalles de una Propiedad");
+            System.out.println("4) Ver Mis Propiedades");
+            System.out.println("5) Ver Reportes");
+            System.out.println("9) Cerrar Sesión");
+            System.out.print("Elige opción: ");
+
+            String opcion = scanner.nextLine().trim();
+            switch (opcion) {
+                case "1":
+                    agregarPropiedadDueno(dueno.getId(), propiedadService);
+                    break;
+                case "2":
+                    buscarPropiedades(propiedadService);
+                    break;
+                case "3":
+                    verDetallesPropiedad(propiedadService);
+                    break;
+                case "4":
+                    verPropiedadesDelDueno(dueno.getId(), propiedadService);
+                    break;
+                case "5":
+                    menuReportes(reportService);
+                    break;
+                case "9":
+                    cerrarSesion = true;
+                    break;
+                default:
+                    System.out.println("Opción inválida. Intenta de nuevo.");
+            }
+        }
+    }
+
+
+    private static void menuReportes(ReportService reportService) {
+        boolean volver = false;
+        while (!volver) {
+            System.out.println("\n--- MENÚ REPORTE ---");
+            System.out.println("1) Cantidad total de propiedades rentadas por cliente (mes, año)");
+            System.out.println("2) Suma total pagada a dueños por periodo (fecha inicio / fecha fin)");
+            System.out.println("3) Suma y cantidad de rentas por cliente (fecha inicio / fecha fin)");
+            System.out.println("4) Número total de rentas por ubicación (país, departamento, municipio, ubicación) (fecha inicio / fecha fin)");
+            System.out.println("5) Impuestos por renta (fecha inicio / fecha fin)");
+            System.out.println("6) Tipos de propiedades más rentadas");
+            System.out.println("7) Totales de rentas por periodo con impuestos (fecha inicio / fecha fin)");
+            System.out.println("8) Totales de comisiones pagadas por periodo (fecha inicio / fecha fin)");
+            System.out.println("9) Volver al menú anterior");
+            System.out.print("Elige opción: ");
+
+            String op = scanner.nextLine().trim();
+            try {
+                switch (op) {
+                    case "1":
+                        reportePropiedadesRentadasPorCliente(reportService);
+                        break;
+                    case "2":
+                        reporteSumaPagadaADueno(reportService);
+                        break;
+                    case "3":
+                        reporteSumaYCantidadRentasCliente(reportService);
+                        break;
+                    case "4":
+                        reporteTotalRentasPorUbicacion(reportService);
+                        break;
+                    case "5":
+                        reporteImpuestosPorRenta(reportService);
+                        break;
+                    case "6":
+                        reporteTiposPropiedadesMasRentadas(reportService);
+                        break;
+                    case "7":
+                        reporteTotalesRentasConImpuestos(reportService);
+                        break;
+                    case "8":
+                        reporteTotalesComisionesPorPeriodo(reportService);
+                        break;
+                    case "9":
+                        volver = true;
+                        break;
+                    default:
+                        System.out.println("Opción inválida. Intenta de nuevo.");
+                }
+            } catch (SQLException e) {
+                System.err.println("Error al ejecutar reporte: " + e.getMessage());
+            }
+        }
+    }
+
+    // ------------------------- IMPLEMENTACIÓN DE CADA REPORTE -------------------------
+
+    // Reporte 1
+    private static void reportePropiedadesRentadasPorCliente(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 1: Cantidad de rentas por cliente (mes/año) ---");
+        System.out.print("Ingresa año (ej. 2025): ");
+        int year;
+        try {
+            year = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Año inválido. Debe ser un número entero.");
+            return;
+        }
+
+        System.out.print("Ingresa mes (1–12): ");
+        int month;
+        try {
+            month = Integer.parseInt(scanner.nextLine().trim());
+            if (month < 1 || month > 12) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            System.out.println("Mes inválido. Debe ser entre 1 y 12.");
+            return;
+        }
+
+        List<Map<String, Object>> resultados = reportService.propiedadesRentadasPorCliente(year, month);
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron rentas en " + month + "/" + year + ".");
+        } else {
+            System.out.printf("Cliente_ID | Total_Rentas en %02d/%d%n", month, year);
+            for (Map<String, Object> fila : resultados) {
+                System.out.printf("%10s | %12s%n",
+                        fila.get("cliente_id"),
+                        fila.get("total_rentas"));
+            }
+        }
+    }
+
+    // Reporte 2
+    private static void reporteSumaPagadaADueno(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 2: Suma total pagada a dueños por periodo ---");
+        Date inicio = pedirFecha("Ingresa fecha de inicio (YYYY-MM-DD): ");
+        if (inicio == null) return;
+        Date fin = pedirFecha("Ingresa fecha de fin     (YYYY-MM-DD): ");
+        if (fin == null) return;
+
+        List<Map<String, Object>> resultados = reportService.sumaPagadaADuenoPorPeriodo(inicio, fin);
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron rentas entre esas fechas.");
+        } else {
+            System.out.println("Dueno_ID | Suma_Valor_Rentas");
+            for (Map<String, Object> fila : resultados) {
+                System.out.printf("%7s | %17s%n",
+                        fila.get("dueno_id"),
+                        fila.get("suma_valor_rentas"));
+            }
+        }
+    }
+
+    // Reporte 3
+    private static void reporteSumaYCantidadRentasCliente(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 3: Suma y cantidad de rentas por cliente ---");
+        Date inicio = pedirFecha("Ingresa fecha de inicio (YYYY-MM-DD): ");
+        if (inicio == null) return;
+        Date fin = pedirFecha("Ingresa fecha de fin     (YYYY-MM-DD): ");
+        if (fin == null) return;
+
+        List<Map<String, Object>> resultados = reportService.sumaYCantidadRentasPorCliente(inicio, fin);
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron rentas entre esas fechas.");
+        } else {
+            System.out.println("Cliente_ID | Cantidad_Rentas | Total_Pagado");
+            for (Map<String, Object> fila : resultados) {
+                System.out.printf("%10s | %15s | %12s%n",
+                        fila.get("cliente_id"),
+                        fila.get("cantidad_rentas"),
+                        fila.get("total_pagado"));
+            }
+        }
+    }
+
+    // Reporte 4
+    private static void reporteTotalRentasPorUbicacion(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 4: Total de rentas por ubicación ---");
+        Date inicio = pedirFecha("Ingresa fecha de inicio (YYYY-MM-DD): ");
+        if (inicio == null) return;
+        Date fin = pedirFecha("Ingresa fecha de fin     (YYYY-MM-DD): ");
+        if (fin == null) return;
+
+        List<Map<String, Object>> resultados = reportService.totalRentasPorUbicacion(inicio, fin);
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron rentas entre esas fechas.");
+        } else {
+            System.out.printf("%-15s | %-15s | %-15s | %-20s | %-12s%n",
+                    "País", "Departamento", "Municipio", "Ubicación", "Total_Rentas");
+            System.out.println("---------------------------------------------------------------------------------------");
+            for (Map<String, Object> fila : resultados) {
+                System.out.printf("%-15s | %-15s | %-15s | %-20s | %12s%n",
+                        fila.get("pais"),
+                        fila.get("departamento"),
+                        fila.get("municipio"),
+                        fila.get("ubicacion"),
+                        fila.get("total_rentas"));
+            }
+        }
+    }
+
+    // Reporte 5
+    private static void reporteImpuestosPorRenta(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 5: Impuestos por renta ---");
+        Date inicio = pedirFecha("Ingresa fecha de inicio (YYYY-MM-DD): ");
+        if (inicio == null) return;
+        Date fin = pedirFecha("Ingresa fecha de fin     (YYYY-MM-DD): ");
+        if (fin == null) return;
+
+        List<Map<String, Object>> resultados = reportService.impuestosPorRenta(inicio, fin);
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron rentas entre esas fechas.");
+        } else {
+            System.out.printf("%-10s | %-12s | %-15s | %-10s%n",
+                    "Renta_ID", "Fecha", "Tipo_Impuesto", "Porcentaje");
+            System.out.println("----------------------------------------------------------");
+            for (Map<String, Object> fila : resultados) {
+                System.out.printf("%-10s | %-12s | %-15s | %10s%%%n",
+                        fila.get("renta_id"),
+                        fila.get("fecha"),
+                        fila.get("tipo_impuesto"),
+                        fila.get("porcentaje"));
+            }
+        }
+    }
+
+    // Reporte 6
+    private static void reporteTiposPropiedadesMasRentadas(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 6: Tipos de propiedades más rentadas ---");
+        List<Map<String, Object>> resultados = reportService.tiposPropiedadesMasRentadas();
+        if (resultados.isEmpty()) {
+            System.out.println("No hay rentas registradas.");
+        } else {
+            System.out.printf("%-20s | %-6s%n", "Tipo_Propiedad", "Veces");
+            System.out.println("----------------------------------------");
+            for (Map<String, Object> fila : resultados) {
+                System.out.printf("%-20s | %6s%n",
+                        fila.get("tipo_propiedad"),
+                        fila.get("veces"));
+            }
+        }
+    }
+
+    // Reporte 7
+    private static void reporteTotalesRentasConImpuestos(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 7: Totales de rentas con impuestos por mes/año ---");
+        Date inicio = pedirFecha("Ingresa fecha de inicio (YYYY-MM-DD): ");
+        if (inicio == null) return;
+        Date fin = pedirFecha("Ingresa fecha de fin     (YYYY-MM-DD): ");
+        if (fin == null) return;
+
+        List<Map<String, Object>> resultados = reportService.totalesRentasConImpuestos(inicio, fin);
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron rentas entre esas fechas.");
+        } else {
+            System.out.printf("%-6s | %-4s | %-20s%n", "Año", "Mes", "Total_Con_Impuestos");
+            System.out.println("------------------------------------");
+            for (Map<String, Object> fila : resultados) {
+                int anio = ((Number)fila.get("anio")).intValue();
+                int mes  = ((Number)fila.get("mes")).intValue();
+                System.out.printf("%-6d | %-4d | %-20s%n",
+                        anio, mes, fila.get("total_con_impuestos"));
+            }
+        }
+    }
+
+    // Reporte 8
+    private static void reporteTotalesComisionesPorPeriodo(ReportService reportService) throws SQLException {
+        System.out.println("\n--- REPORTE 8: Totales de comisiones por periodo ---");
+        Date inicio = pedirFecha("Ingresa fecha de inicio (YYYY-MM-DD): ");
+        if (inicio == null) return;
+        Date fin = pedirFecha("Ingresa fecha de fin     (YYYY-MM-DD): ");
+        if (fin == null) return;
+
+        List<Map<String, Object>> resultados = reportService.totalesComisionesPorPeriodo(inicio, fin);
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron comisiones entre esas fechas.");
+        } else {
+            System.out.printf("%-15s | %-15s%n", "Tipo_Comision", "Total_Comision");
+            System.out.println("-----------------------------------------");
+            for (Map<String, Object> fila : resultados) {
+                System.out.printf("%-15s | %15s%n",
+                        fila.get("tipo_comision"),
+                        fila.get("total_comision"));
+            }
+        }
+    }
+
+    // --------------------- MÉTODOS AUXILIARES PARA CLIENTE / DUEÑO / INVITADO ---------------------
+
+    /**
+     * Permite a un invitado buscar propiedades (reutiliza el método de cliente).
+     */
+    private static void buscarPropiedadesComoInvitado(PropiedadService propiedadService) {
+        System.out.println("\n--- BUSCAR PROPIEDADES (INVITADO) ---");
+        buscarPropiedades(propiedadService);
+    }
+
+    /**
+     * Buscar propiedades con múltiples filtros.
+     */
+    private static void buscarPropiedades(PropiedadService propiedadService) {
+        System.out.println("\n--- BUSCAR PROPIEDADES ---");
+
+        Map<String, Object> filtros = new HashMap<>();
+        System.out.print("Filtrar por país (ENTER para omitir): ");
+        String pais = scanner.nextLine().trim();
+        if (!pais.isEmpty()) filtros.put("pais", pais);
+
+        System.out.print("Filtrar por departamento (ENTER para omitir): ");
+        String depto = scanner.nextLine().trim();
+        if (!depto.isEmpty()) filtros.put("departamento", depto);
+
+        System.out.print("Filtrar por municipio (ENTER para omitir): ");
+        String muni = scanner.nextLine().trim();
+        if (!muni.isEmpty()) filtros.put("municipio", muni);
+
+        System.out.print("Filtrar por ubicación (ENTER para omitir): ");
+        String ubicacion = scanner.nextLine().trim();
+        if (!ubicacion.isEmpty()) filtros.put("ubicacion", ubicacion);
+
+        System.out.print("Filtrar por tipo de propiedad (Casa/Apartamento) (ENTER para omitir): ");
+        String tipo = scanner.nextLine().trim();
+        if (!tipo.isEmpty()) filtros.put("tipo", tipo);
+
+        System.out.print("Filtrar por cantidad de cuartos (ENTER para omitir): ");
+        String cuartosStr = scanner.nextLine().trim();
+        if (!cuartosStr.isEmpty()) {
+            try {
+                filtros.put("cuartos", Integer.parseInt(cuartosStr));
+            } catch (NumberFormatException e) {
+                System.out.println("Valor de cuartos inválido. Se omitirá este filtro.");
+            }
+        }
+
+        System.out.print("Renta mínima (ENTER para omitir): ");
+        String rentaMinStr = scanner.nextLine().trim();
+        System.out.print("Renta máxima (ENTER para omitir): ");
+        String rentaMaxStr = scanner.nextLine().trim();
+        if (!rentaMinStr.isEmpty() && !rentaMaxStr.isEmpty()) {
+            try {
+                double rMin = Double.parseDouble(rentaMinStr);
+                double rMax = Double.parseDouble(rentaMaxStr);
+                filtros.put("rentaMin", rMin);
+                filtros.put("rentaMax", rMax);
+            } catch (NumberFormatException e) {
+                System.out.println("Valores de renta inválidos. Se omitirán estos filtros.");
+            }
+        }
+
+        try {
+            List<Propiedad> lista = propiedadService.buscarPropiedades(filtros);
+            if (lista.isEmpty()) {
+                System.out.println("No se encontraron propiedades con esos filtros.");
+            } else {
+                System.out.println("\n-- Propiedades encontradas --");
+                for (Propiedad p : lista) {
+                    System.out.printf("ID: %d | Tipo: %s | Dirección: %s | Renta: %.2f%n",
+                            p.getId(), p.getTipoPropiedad(), p.getDireccion(), p.getRenta());
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al buscar propiedades: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Muestra detalles completos de una propiedad por su ID.
+     */
+    private static void verDetallesPropiedad(PropiedadService propiedadService) {
+        System.out.println("\n--- VER DETALLES DE PROPIEDAD ---");
+        System.out.print("Ingresa ID de la propiedad: ");
+        String idStr = scanner.nextLine().trim();
+        try {
+            int idProp = Integer.parseInt(idStr);
+            Propiedad p = propiedadService.obtenerPropiedad(idProp);
+            if (p == null) {
+                System.out.println("No existe propiedad con ese ID.");
+            } else {
+                System.out.println("----- Información Detallada -----");
+                System.out.println("ID:           " + p.getId());
+                System.out.println("Tipo:         " + p.getTipoPropiedad());
+                System.out.println("Dirección:    " + p.getDireccion());
+                System.out.println("País:         " + p.getPais());
+                System.out.println("Departamento: " + p.getDepartamento());
+                System.out.println("Municipio:    " + p.getMunicipio());
+                System.out.println("Ubicación:    " + p.getUbicacion());
+                System.out.println("Cuartos:      " + p.getCuartos());
+                System.out.println("Renta:        " + p.getRenta());
+                System.out.println("Estado:       " + p.getEstado());
+                System.out.println("ID Dueño:     " + p.getDuenoId());
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("ID inválido. Debe ser un número.");
+        } catch (SQLException e) {
+            System.err.println("Error al obtener detalles: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Permite a un Cliente agregar una propiedad a su lista de visitas.
+     */
+    private static void agregarAListaVisitas(int clienteId, VisitaService visitaService) {
+        System.out.println("\n--- AGREGAR A LISTA DE VISITAS ---");
+        System.out.print("Ingresa ID de la propiedad que quieres agregar: ");
+        String idStr = scanner.nextLine().trim();
+        try {
+            int idProp = Integer.parseInt(idStr);
+            visitaService.agregarALista(clienteId, idProp);
+            System.out.println("Propiedad (ID=" + idProp + ") agregada a tu lista de visitas.");
+        } catch (NumberFormatException e) {
+            System.out.println("ID inválido. Debe ser un número.");
+        } catch (SQLException e) {
+            if (e.getMessage().toLowerCase().contains("unique")) {
+                System.out.println("Esa propiedad ya estaba en tu lista de visitas.");
+            } else {
+                System.err.println("Error al agregar a lista de visitas: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Muestra todas las visitas (propiedades) que un Cliente ha agregado.
+     */
+    private static void verListaVisitas(int clienteId,
+                                        VisitaService visitaService,
+                                        PropiedadService propiedadService) {
+        System.out.println("\n--- MI LISTA DE VISITAS ---");
+        try {
+            List<Visita> listaVisitas = visitaService.obtenerListaPorCliente(clienteId);
+            if (listaVisitas.isEmpty()) {
+                System.out.println("Tu lista de visitas está vacía.");
+            } else {
+                System.out.println("ID Visita | ID Propiedad | Fecha");
+                for (Visita v : listaVisitas) {
+                    System.out.printf("%8d   %8d   %s%n",
+                            v.getId(), v.getPropiedadId(), v.getFecha().toString());
+                }
+                System.out.print("¿Quieres ver detalles de alguna propiedad? (S/N): ");
+                String resp = scanner.nextLine().trim().toUpperCase();
+                if (resp.equals("S")) {
+                    verDetallesPropiedad(propiedadService);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al obtener lista de visitas: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Permite a un Cliente rentar (modo simple) una propiedad de su lista de visitas.
+     */
+    private static void rentarPropiedadModoSimple(int clienteId,
+                                                  RentaService rentaService,
+                                                  PropiedadService propiedadService) {
+        System.out.println("\n--- RENTAR PROPIEDAD (MODO SIMPLE) ---");
+        System.out.print("Ingresa ID de la propiedad a rentar: ");
+        String idStr = scanner.nextLine().trim();
+        try {
+            int propiedadId = Integer.parseInt(idStr);
+
+            // Obtenemos VEI (valor estipulado) de la propiedad
+            double VEI = propiedadService.obtenerPropiedad(propiedadId).getRenta();
+
+            // Cálculo simplificado de VTR y TI
+            double VTR = rentaService.calcularVTR(VEI);
+            double TI  = rentaService.calcularTI(VTR);
+            double VTP = VTR + TI;
+
+            System.out.printf("Valor Estipulado (VEI):    %.2f%n", VEI);
+            System.out.printf("Valor Total Renta (VTR):   %.2f%n", VTR);
+            System.out.printf("Total Impuestos (TI):      %.2f%n", TI);
+            System.out.printf("Valor Total a Pagar (VTP): %.2f%n", VTP);
+
+            System.out.print("Ingresa el monto en EFECTIVO para pagar: ");
+            String montoStr = scanner.nextLine().trim();
+            double montoEfectivo;
+            try {
+                montoEfectivo = Double.parseDouble(montoStr);
+            } catch (NumberFormatException e) {
+                System.out.println("Monto inválido. Debe ser número.");
+                return;
+            }
+
+            // Para simplificar, asumimos que solo el cliente mismo es el inquilino
+            List<Inquilino> inquilinos = new ArrayList<>();
+            System.out.print("¿Eres tú el único inquilino? (S/N): ");
+            String resp = scanner.nextLine().trim().toUpperCase();
+            if (resp.equals("S")) {
+                System.out.print("Ingresa tu número de identificación: ");
+                String ident = scanner.nextLine().trim();
+                System.out.print("Ingresa tu nombre completo: ");
+                String nombreInquilino = scanner.nextLine().trim();
+                inquilinos.add(new Inquilino(0, 0, ident, nombreInquilino));
+            } else {
+                System.out.println("Por simplicidad en modo simple, asumimos que solo tú rentas.");
+                return;
+            }
+
+            int idRenta = rentaService.procesarRenta(
+                    clienteId,
+                    propiedadService.obtenerPropiedad(propiedadId).getDuenoId(),
+                    propiedadId,
+                    new Date(System.currentTimeMillis()),
+                    Collections.emptyMap(),  // sin servicios adicionales
+                    montoEfectivo,
+                    inquilinos
+            );
+            System.out.println("Renta creada con éxito. ID Renta = " + idRenta);
+        } catch (NumberFormatException e) {
+            System.out.println("ID de propiedad inválido. Debe ser número.");
+        } catch (SQLException e) {
+            System.err.println("Error al procesar renta: " + e.getMessage());
+        } catch (IllegalArgumentException ie) {
+            System.out.println("No se pudo rentar: " + ie.getMessage());
+        }
+    }
+
+    /**
+     * Permite a un Dueño agregar una nueva propiedad.
+     */
+    private static void agregarPropiedadDueno(int duenoId, PropiedadService propiedadService) {
+        System.out.println("\n--- AGREGAR PROPIEDAD (DUEÑO) ---");
+        Propiedad p = new Propiedad();
+
+        System.out.print("Tipo (Casa/Apartamento): ");
+        p.setTipoPropiedad(scanner.nextLine().trim());
+
+        System.out.print("Dirección: ");
+        p.setDireccion(scanner.nextLine().trim());
+
+        System.out.print("País: ");
+        p.setPais(scanner.nextLine().trim());
+
+        System.out.print("Departamento: ");
+        p.setDepartamento(scanner.nextLine().trim());
+
+        System.out.print("Municipio: ");
+        p.setMunicipio(scanner.nextLine().trim());
+
+        System.out.print("Ubicación (barrio o zona): ");
+        p.setUbicacion(scanner.nextLine().trim());
+
+        System.out.print("Número de cuartos: ");
+        try {
+            p.setCuartos(Integer.parseInt(scanner.nextLine().trim()));
+        } catch (NumberFormatException e) {
+            System.out.println("Cuartos inválido. Debe ser entero.");
+            return;
+        }
+
+        System.out.print("Valor de renta (ej. 1200.00): ");
+        try {
+            p.setRenta(Double.parseDouble(scanner.nextLine().trim()));
+        } catch (NumberFormatException e) {
+            System.out.println("Renta inválida. Debe ser número.");
+            return;
+        }
+
+        System.out.print("Estado (Activo/Inactivo): ");
+        p.setEstado(scanner.nextLine().trim());
+
+        p.setDuenoId(duenoId);
+
+        try {
+            int idCreada = propiedadService.agregarPropiedad(p);
+            System.out.println("Propiedad creada con éxito. ID = " + idCreada);
+        } catch (SQLException e) {
+            System.err.println("Error al insertar propiedad: " + e.getMessage());
+        } catch (IllegalArgumentException ie) {
+            System.out.println("Datos inválidos: " + ie.getMessage());
+        }
+    }
+
+    /**
+     * Muestra todas las propiedades registradas por un Dueño.
+     */
+    private static void verPropiedadesDelDueno(int duenoId, PropiedadService propiedadService) {
+        System.out.println("\n--- MIS PROPIEDADES (DUEÑO) ---");
+        try {
+            List<Propiedad> todas = propiedadService.buscarPropiedades(new HashMap<>());
+            List<Propiedad> misProp = new ArrayList<>();
+            for (Propiedad p : todas) {
+                if (p.getDuenoId() == duenoId) {
+                    misProp.add(p);
+                }
+            }
+            if (misProp.isEmpty()) {
+                System.out.println("No tienes propiedades registradas.");
+            } else {
+                System.out.println("ID | Tipo | Dirección | Renta | Estado");
+                for (Propiedad p : misProp) {
+                    System.out.printf("%2d | %s | %s | %.2f | %s%n",
+                            p.getId(), p.getTipoPropiedad(), p.getDireccion(),
+                            p.getRenta(), p.getEstado());
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al obtener propiedades: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Permite al usuario (Cliente) crear una nueva cuenta.
+     */
+    private static void crearCuentaCliente(AccountService accountService) {
+        System.out.println("\n--- CREAR CUENTA (Cliente) ---");
+
+        System.out.print("Nombre de usuario: ");
+        String nombreUsuario = scanner.nextLine().trim();
+        if (nombreUsuario.isEmpty()) {
+            System.out.println("El nombre de usuario no puede estar vacío.");
+            return;
+        }
+
+        System.out.print("Contraseña: ");
+        String contrasena = scanner.nextLine().trim();
+        if (contrasena.isEmpty()) {
+            System.out.println("La contraseña no puede estar vacía.");
+            return;
+        }
+
+        System.out.print("Nombre: ");
+        String nombre = scanner.nextLine().trim();
+        if (nombre.isEmpty()) {
+            System.out.println("El nombre no puede estar vacío.");
+            return;
+        }
+
+        System.out.print("Apellido: ");
+        String apellido = scanner.nextLine().trim();
+        if (apellido.isEmpty()) {
+            System.out.println("El apellido no puede estar vacío.");
+            return;
+        }
+
+        System.out.print("Correo: ");
+        String correo = scanner.nextLine().trim();
+        if (correo.isEmpty()) {
+            System.out.println("El correo no puede estar vacío.");
+            return;
+        }
+
+        System.out.print("Renta máxima (ej. 1500.00): ");
+        String rentaMaxStr = scanner.nextLine().trim();
+        double rentaMaxima;
+        try {
+            rentaMaxima = Double.parseDouble(rentaMaxStr);
+            if (rentaMaxima < 0) {
+                System.out.println("La renta máxima no puede ser negativa.");
+                return;
+            }
+        } catch (NumberFormatException ex) {
+            System.out.println("Valor inválido para renta máxima. Debe ser un número decimal.");
+            return;
+        }
+
+        try {
+            accountService.crearCliente(nombreUsuario, contrasena, nombre, apellido, correo, rentaMaxima);
+            System.out.println("¡Cuenta creada con éxito! Ahora puedes iniciar sesión con tus credenciales.");
+        } catch (SQLException e) {
+            System.err.println("Error al insertar cliente en la base de datos: " + e.getMessage());
+        } catch (IllegalArgumentException iae) {
+            System.out.println("No se pudo crear la cuenta: " + iae.getMessage());
+        }
+    }
+
+    /**
+     * Pide al usuario una fecha en el formato YYYY-MM-DD y la convierte a java.sql.Date.
+     * Si el formato es inválido, devuelve null y muestra un mensaje de error.
+     */
+    private static Date pedirFecha(String prompt) {
+        System.out.print(prompt);
+        String str = scanner.nextLine().trim();
+        try {
+            return Date.valueOf(str); // convierte "2025-06-15" a java.sql.Date
+        } catch (IllegalArgumentException e) {
+            System.out.println("Fecha inválida. Debe tener formato YYYY-MM-DD.");
+            return null;
+        }
+    }
+}
+
