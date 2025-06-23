@@ -1,0 +1,19 @@
+package org.example.model;
+
+
+public class Cliente extends Usuario {
+    private double rentaMaxima;
+
+    public Cliente() { }
+
+    public Cliente(int id, String nombreUsuario, String contrasena,
+                   String nombre, String apellido, String correo,
+                   String tipoCuenta, double rentaMaxima) {
+        super(id, nombreUsuario, contrasena, nombre, apellido, correo, tipoCuenta);
+        this.rentaMaxima = rentaMaxima;
+    }
+
+    public double getRentaMaxima() { return rentaMaxima; }
+    public void setRentaMaxima(double rentaMaxima) { this.rentaMaxima = rentaMaxima; }
+}
+
