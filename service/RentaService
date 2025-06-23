@@ -1,0 +1,95 @@
+package org.example.service;
+
+
+import org.example.dao.RentaDAO;
+import org.example.model.Inquilino;
+import org.example.model.Propiedad;
+import org.example.model.Renta;
+
+import java.sql.Date;
+import java.sql.SQLException;
+import java.util.*;
+
+/**
+ * RentaService: capa intermedia entre Main y RentaDAO.
+ * Aquí se calcula VTR, TI, VTP y se procesa la renta completa.
+ */
+public class RentaService {
+    private final RentaDAO rentaDAO;
+    private final PropiedadService propiedadService;
+
+    public RentaService() throws SQLException {
+        this.rentaDAO = new RentaDAO();
+        this.propiedadService = new PropiedadService();
+    }
+
+
+
+    public double calcularVTR(double vei) {
+        return vei * 1.10;
+    }
+
+
+    public double calcularTI(double vtr) {
+        return vtr * 0.16;
+    }
+
+
+    public int procesarRenta(int clienteId, int duenoId, int propiedadId,
+                             Date fecha, Map<Integer, Integer> servicios,
+                             double montoEfectivo, List<Inquilino> inquilinos)
+            throws SQLException {
+
+        // 1) Verificar renta pendiente
+        if (rentaDAO.existeRentaPendiente(clienteId)) {
+            throw new IllegalArgumentException("Ya existe una renta pendiente para este cliente.");
+        }
+
+        // 2) Obtener VEI (valor estipulado) de la propiedad
+        Propiedad p = propiedadService.obtenerPropiedad(propiedadId);
+        if (p == null) {
+            throw new IllegalArgumentException("La propiedad no existe.");
+        }
+        double vei = p.getRenta();
+
+        // 3) Calcular VTR, TI, VTP
+        double vtr = calcularVTR(vei);
+        double ti  = calcularTI(vtr);
+        double vtp = vtr + ti;
+
+        if (montoEfectivo < vtp) {
+            throw new IllegalArgumentException("El monto en efectivo es insuficiente. Debe pagar " + vtp);
+        }
+
+        // 4) Insertar en tabla renta
+        Renta r = new Renta();
+        r.setClienteId(clienteId);
+        r.setDuenoId(duenoId);
+        r.setPropiedadId(propiedadId);
+        r.setFecha(fecha);
+        r.setVei(vei);
+        r.setVtr(vtr);
+        r.setTi(ti);
+        r.setVtp(vtp);
+        r.setEstadoRenta("Pagado"); // como es pago inmediato en modo simple
+        int idRenta = rentaDAO.insertarRenta(r);
+
+        // 5) Insertar inquilinos (al menos un inquilino)
+        for (Inquilino i : inquilinos) {
+            i.setRentaId(idRenta);
+        }
+        rentaDAO.insertarInquilinos(inquilinos, idRenta);
+
+        // 6) Insertar comisiones (map servicios: key=comision_id, value=num_inquilinos)
+        rentaDAO.insertarComisionRenta(idRenta, servicios);
+
+        // 7) Insertar impuestos (para simplificar, no pedimos lista de impuestos; si hubiera, pasarlos aquí)
+        //    podríamos hacer: rentaDAO.insertarImpuestoRenta(idRenta, listaImpuestos);
+        //    Por defecto, no Insertamos nada si no hay impuestos específicos.
+
+        // 8) Insertar pago (tipo EFECTIVO, valor = montoEfectivo, detalles vacíos)
+        rentaDAO.insertarPago(idRenta, "EFECTIVO", montoEfectivo, "");
+
+        return idRenta;
+    }
+}
