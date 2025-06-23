@@ -1,0 +1,38 @@
+package org.example.service;
+
+import org.example.dao.VisitaDAO;
+import org.example.model.Visita;
+
+import java.sql.SQLException;
+import java.util.List;
+
+/**
+ * VisitaService: capa intermedia entre Main y VisitaDAO.
+ */
+public class VisitaService {
+    private final VisitaDAO visitaDAO;
+
+    public VisitaService() throws SQLException {
+        this.visitaDAO = new VisitaDAO();
+    }
+
+    /**
+     * Agrega una propiedad a la lista de visitas del cliente.
+     */
+    public void agregarALista(int clienteId, int propiedadId) throws SQLException {
+        if (clienteId <= 0 || propiedadId <= 0) {
+            throw new IllegalArgumentException("IDs inválidos para cliente o propiedad.");
+        }
+        Visita v = new Visita();
+        v.setClienteId(clienteId);
+        v.setPropiedadId(propiedadId);
+        visitaDAO.insertarVisita(v);
+    }
+
+    /**
+     * Devuelve todas las visitas (propiedades) de un cliente.
+     */
+    public List<Visita> obtenerListaPorCliente(int clienteId) throws SQLException {
+        return visitaDAO.obtenerVisitasPorCliente(clienteId);
+    }
+}
