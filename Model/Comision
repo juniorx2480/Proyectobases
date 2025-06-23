@@ -1,0 +1,27 @@
+package org.example.model;
+
+
+public class Comision {
+    private int id;
+    private String tipoComision;  // ej. "Gestión", "Administración"
+    private double porcentaje;    // ej. 1.00 para 1%
+
+    public Comision() { }
+
+    public Comision(int id, String tipoComision, double porcentaje) {
+        this.id = id;
+        this.tipoComision = tipoComision;
+        this.porcentaje = porcentaje;
+    }
+
+    // Getters y Setters
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+
+    public String getTipoComision() { return tipoComision; }
+    public void setTipoComision(String tipoComision) { this.tipoComision = tipoComision; }
+
+    public double getPorcentaje() { return porcentaje; }
+    public void setPorcentaje(double porcentaje) { this.porcentaje = porcentaje; }
+}
+
