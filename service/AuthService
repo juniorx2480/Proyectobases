@@ -1,0 +1,20 @@
+package org.example.service;
+
+import org.example.dao.UsuarioDAO;
+import org.example.model.Usuario;
+import org.example.model.Cliente;
+import org.example.model.Dueno;
+
+import java.sql.SQLException;
+
+public class AuthService {
+    private final UsuarioDAO usuarioDAO;
+
+    public AuthService() throws SQLException {
+        this.usuarioDAO = new UsuarioDAO();
+    }
+
+    public Usuario login(String nombreUsuario, String contrasena) throws SQLException {
+        return usuarioDAO.buscarPorCredenciales(nombreUsuario, contrasena);
+    }
+}
