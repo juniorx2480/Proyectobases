@@ -1,0 +1,73 @@
+package org.example.service;
+
+import org.example.dao.PropiedadDAO;
+import org.example.model.Propiedad;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * PropiedadService: capa intermedia entre Main y PropiedadDAO,
+ * maneja validaciones de negocio antes de llamar al DAO.
+ */
+public class PropiedadService {
+    private final PropiedadDAO propiedadDAO;
+
+    public PropiedadService() throws SQLException {
+        this.propiedadDAO = new PropiedadDAO();
+    }
+
+    /**
+     * Crea una nueva propiedad.
+     * Si algún campo no cumple, lanza IllegalArgumentException.
+     */
+    public int agregarPropiedad(Propiedad p) throws SQLException {
+        if (p.getTipoPropiedad() == null || p.getTipoPropiedad().isBlank()) {
+            throw new IllegalArgumentException("El tipo de propiedad es obligatorio.");
+        }
+        if (p.getDireccion() == null || p.getDireccion().isBlank()) {
+            throw new IllegalArgumentException("La dirección es obligatoria.");
+        }
+        if (p.getPais() == null || p.getPais().isBlank()) {
+            throw new IllegalArgumentException("El país es obligatorio.");
+        }
+        if (p.getDepartamento() == null || p.getDepartamento().isBlank()) {
+            throw new IllegalArgumentException("El departamento es obligatorio.");
+        }
+        if (p.getMunicipio() == null || p.getMunicipio().isBlank()) {
+            throw new IllegalArgumentException("El municipio es obligatorio.");
+        }
+        if (p.getUbicacion() == null || p.getUbicacion().isBlank()) {
+            throw new IllegalArgumentException("La ubicación es obligatoria.");
+        }
+        if (p.getCuartos() <= 0) {
+            throw new IllegalArgumentException("La cantidad de cuartos debe ser mayor que 0.");
+        }
+        if (p.getRenta() <= 0) {
+            throw new IllegalArgumentException("El valor de renta debe ser mayor que 0.");
+        }
+        if (p.getEstado() == null || p.getEstado().isBlank()) {
+            throw new IllegalArgumentException("El estado es obligatorio.");
+        }
+        if (p.getDuenoId() <= 0) {
+            throw new IllegalArgumentException("El ID del dueño es inválido.");
+        }
+        return propiedadDAO.insertarPropiedad(p);
+    }
+
+    /**
+     * Devuelve la propiedad con el ID dado, o null si no existe.
+     */
+    public Propiedad obtenerPropiedad(int id) throws SQLException {
+        return propiedadDAO.obtenerPorId(id);
+    }
+
+    /**
+     * Busca propiedades con filtros dinámicos.
+     */
+    public List<Propiedad> buscarPropiedades(Map<String, Object> filtros) throws SQLException {
+        return propiedadDAO.buscarPorFiltros(filtros);
+    }
+}
+
